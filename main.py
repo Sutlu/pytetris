@@ -1,5 +1,3 @@
-   #55:00 war ich
-
 import pygame
 import random
 
@@ -32,14 +30,14 @@ class Figure:
         self.x = x_coord
         self.y = y_coord
         self.type = random.randint(0, len(self.Figures) - 1)
-        self.color = colors[self.type+1]
+        self.color = colors[self.type + 1]
         self.rotation = 0
 
     def image(self):
         return self.Figures[self.type][self.rotation]
 
     def rotate(self):
-        self.rotation = (self.rotation + 1) % len(self.figures[self.type])
+        self.rotation = (self.rotation + 1) % len(self.Figures[self.type])
         
 
 class Tetris:
@@ -68,6 +66,81 @@ class Tetris:
 
     def go_down(self):
         self.Figure.y += 1
+        if self.intersects():
+            self.Figure.y -= 1
+            self.freeze()
+
+
+    def side(self, dx):
+        old_x = self.Figure.x
+        edge = False
+        for i in range(4):
+            for j in range(4):
+                p = i* 4 + j
+                if p in self.Figure.image():
+                    if j + self.Figure.x + dx > self.width -1 or j + self.Figure.x + dx < 0:
+                        edge = True
+        if not edge:
+            self.Figure.x += dx
+        if self.intersects():
+            self.Figure.x = old_x
+    
+    def left(self):
+        self.side(-1)
+
+    def right(self):
+        self.side(1)
+
+    def down(self):
+        while not self.intersects():
+            self.Figure.y += 1
+        self.Figure.y -= 1
+        self.freeze()
+
+    def rotate(self):
+        old_rotation = self.Figure.rotation
+        self.Figure.rotate()
+        if self.intersects():
+            self.Figure.rotation = old_rotation
+
+    def intersects(self):
+        intersection = False
+        for i in range(4):
+            for j in range(4):
+                p = i * 4 + j
+                if p in self.Figure.image():
+                    if i + self.Figure.y > self.height - 1 or i + self.Figure.y < 0 or self.field[i + self.Figure.y][j + self.Figure.x] > 0:
+                        intersection = True
+        return intersection
+
+    def freeze(self):
+        for i in range(4):
+            for j in range(4):
+                p = i * 4 + j
+                if p in self.Figure.image():
+                    self.field[i + self.Figure.y][j + self.Figure.x] = self.Figure.type + 1
+        self.breack_lines()
+        self.new_figure()
+        if self.intersects():
+            self.state == 'gameover'
+
+    def breack_lines(self):
+        lines = 0
+        for i in range(1, self.height):
+            zeros = 0
+            for j in range(self.width):
+                if self.field[i][j] == 0:
+                    zeros += 1
+
+            if zeros == 0:
+                lines += 1
+                for i2 in range(i, 1, -1):
+                    for j in range(self.width):
+                        self.field[i2][j] = self.field[i2 - 1][j]
+        self.score += lines ** 2
+
+
+
 
 
 pygame.init()
@@ -106,13 +179,6 @@ while not done:
                 pressing_left = True
             if event.key == pygame.K_RIGHT:
                 pressing_right = True
-
-        if pressing_down:
-            game.down()
-        if pressing_left:
-            game.left()
-        if pressing_right:
-            game.right()
         
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_DOWN:
@@ -124,7 +190,14 @@ while not done:
             if event.key == pygame.K_RIGHT:
                 game.right()
                 pressing_right = False
-
+        
+    if pressing_down:
+        game.down()
+    if pressing_left:
+        game.left()
+    if pressing_right:
+        game.right()
+    
     screen.fill(color = WHITE)
     for i in range(game.height):
         for j in range(game.width):
@@ -142,6 +215,16 @@ while not done:
                 p = i * 4 + j
                 if p in game.Figure.image():
                     pygame.draw.rect(screen, game.Figure.color, [35 + (j+game.Figure.x)*zoom, 35 + (i+game.Figure.y)*zoom, zoom, zoom,])
+
+    gameover_font = pygame.font.SysFont('Calibri', 64, True, False)
+    text_gameover = gameover_font.render('Game over!\n Press Esc', True, (255, 215, 0))
+
+    if game.state == 'gameover':
+        screen.blit(text_gameover, [30, 250])
+
+    score_font = pygame.font.SysFont('Calibri', 25, True, False)
+    text_score = gameover_font.render('Score: '+  str(game.score), True, (0, 0, 0))
+    screen.blit(text_score, [0, 0])
 
     pygame.display.flip()
     clock.tick(fps)
